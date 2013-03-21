@@ -1,0 +1,1298 @@
+**Marida2のソケット通信仕様(2012.03.20版)
+
+**1.通信の基本データ構造
+**1-1.送信の基本データ構造
+>|
+　Marida2との通信は、基本的に下記のデータ構造を持つパケットにより行い、0x03から始まり、0x06で終わります。
+　1バイト目     0x03 開始コード
+　2バイト目     xx データ全体サイズ512バイト以内になるように
+　3～4バイト目  xxxx 命令コマンド(2バイト)
+　5バイト以降～ xx,xx..    データ コマンド毎に意味が異なります
+　最終バイト目  0x06 終了コード
+|<
+**1-2.受信の基本データ構造
+>|
+　Marida2がパケットを受信した後、接続機器にACKや必要データを返すときは、下記のようなデータ構造を持つパケットが返ります。
+　1バイト目     0x03 開始コード
+　2バイト目     xx データ全体サイズ
+　3バイト以降～ xx,xx..    ACKやデータなど受け取ったコマンドにより、返信内容が異なります
+　最終バイト目  0x06 終了コード
+|<
+**1-3.命令コマンド
+>|
+　3～4バイト目に来る命令コマンドには下記のものがあります。
+
+     命令code   命令(Luaridaで使用するコマンド)
+        0000    受取った返信
+        0003    touch
+        0004    Canvas.drawLine
+        0005    Canvas.drawRect
+        0006    Canvas.drawCircle
+        0007    Canvas.putCls
+        0008    Canvas.putLine
+        0009    Canvas.putRect
+        000A    Canvas.putCircle
+        000B    inkey
+
+        0101    Canvas.drawText
+        0102    Canvas.drawCls
+        0103    Canvas.putText
+        0105    Canvas.drawTextCenter
+        0106    Canvas.drawTextBox
+        0104    Canvas.getviewSize
+        0107    Canvas.drawTextRotate
+        0108    Canvas.putTextBox
+        0109    Canvas.putTextRotate
+        010A    Canvas.getColor
+        010B    Canvas.putTextCenter
+
+        0205    dialog
+        0206    toast
+        0207    editText
+        0208    System.expCall
+        0209    System.impCallActionView
+        020A    getSDdcard
+        020B    getRunfile
+        020C    System.impCallActionSend
+        020D    System.exit
+        020E    editsetText
+        020F    System.setScreen
+        0210    System.setSleep
+
+        0308    Item.add
+        0309    Item.clear
+        030A    Item.list
+        030B    Item.radio
+        030C    Item.check
+
+        0400    Canvas.putg
+        0401    Canvas.getg
+        0402    Canvas.loadBmp
+        0403    Canvas.putflush
+        0404    Canvas.saveBmp
+        0405    Canvas.workCls
+        0406    Canvas.putRotg
+        0407    Canvas.setWorkBmp
+        0408    Canvas.setMainBmp
+        0409    Canvas.workflush
+        040A    Canvas.getBmpSize
+        040B    Canvas.putWork
+
+        0500    Sound.clearAll
+        0501    Sound.setSoundFile
+        0502    Sound.start
+        0503    Sound.restart
+        0504    Sound.stop
+        0505    Sound.pause
+        0506    Sound.isPlay
+        0507    Sound.beep
+
+        0600    Sensor.getAccel
+        0601    Sensor.getOrient
+        0602    Sensor.getMagnet
+        0603    Sensor.setdevAccel
+        0604    Sensor.setdevOrient
+        0605    Sensor.setdevMagnet
+        0606    Sensor.getGdirection
+
+        0700    Http.get
+        0701    Http.addHeader
+        0702    Http.status
+        0703    Http.post
+        0704    Http.setPostFile
+        0705    Http.addParam
+        0706    Http.clrParam
+        0707    Http.clrHeader
+        0708    Http.setContentType
+
+        0800    Zip.status
+        0801    Zip.exec
+        0802    Zip.addFile
+
+        0900    Sock.connectOpen
+        0901    Sock.listenOpen
+        0902    Sock.close
+        0903    Sock.send
+        0904    Sock.recv
+        0905    Sock.getAddress
+
+        0A00    Sprite.define
+        0A01    Sprite.put
+        0A02    Sprite.init
+        0A03    Sprite.touch
+|<
+**2.命令コマンド別の通信仕様
+**2-0003.画面のタッチを取得します: touch(0x0003)
+>|
+    touch( [タッチ取得(1)] )
+    0x03 0x06 0x0003 0xGG 0x06    →    受信 0x03 0x08 0xXXXX 0xYYYY 0xHH 0x06
+    0xGGの値
+        0x00: 座標とタッチの状態を返す
+        0x01: タッチダウンもしくはタッチ状態であれば返る
+        0x02: タッチアップもしくは離れている上体であれば返る
+        0x03: タッチアップ状態からタッチして、さらに離れたら状態になれば返る
+
+    受信
+    0xXXXXの値 :  タッチしたX座標
+    0xYYYYの値 :  タッチしたY座標
+    0xHHの値 : タッチの状態
+            0x00: ACTION_DOWN タッチ押下
+            0x01: ACTION_UP   指を持ち上げている
+            0x02: ACTION_MOVE 指を持ち上げずにスライドさせている
+            0x03: ACTION_CANCEL UP+DOWNの同時発生(＝キャンセル)
+            0x04: ACTION_OUTSIDE ターゲットとするUIの範囲外を押下
+            0x46: エラー発生させて処理を停止させる
+|<
+**2-0004.画面に線を引きます: Canvas.drawLine(0x0004)
+>|
+    Canvas.drawLine( startX, startY, stopX, stopY, 色)
+    0x03 0x11 0x0004 0xXXXX 0xYYYY 0xGGGG 0xHHHH 0xIIIIIIII 0x06
+    0xXXXXの値 : 開始X座標
+    0xYYYYの値 : 開始Y座標
+    0xGGGGの値 : 終了X座標
+    0xHHHHの値 : 終了Y座標
+    0xIIIIIIIIの値 : 色コード(ARGB)
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0005.画面にボックスを描きます: Canvas.drawRect(0x0005)
+>|
+    Canvas.drawRect( startX, startY, stopX, stopY, 色 [,塗りつぶし])
+    0x03 0x12 0x0005 0xXXXX 0xYYYY 0xGGGG 0xHHHH 0xIIIIIIII 0xNN 0x06
+    0xXXXXの値 : 左上X座標
+    0xYYYYの値 : 左上Y座標
+    0xGGGGの値 : 右下X座標
+    0xHHHHの値 : 右下Y座標
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xNNの値
+        0: 枠だけ
+        1: 塗りつぶし
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0006.画面に円を描きます: Canvas.drawCircle(0x0006)
+>|
+    Canvas.drawCircle( CenterX, CenterY, RadiusX, 色 [,塗りつぶし])
+    0x03 0x10 0x0006 0xXXXX 0xYYYY 0xRRRR 0xIIIIIIII 0xNN 0x06
+    0xXXXXの値 : 中心X座標
+    0xYYYYの値 : 中心Y座標
+    0xRRRRの値 : 半径ピクセル数
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xNNの値
+        0: 枠だけ
+        1: 塗りつぶし
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0007.画面を塗りつぶします(putflushが必要): Canvas.putCls(0x0007)
+>|
+    Canvas.putCls( [背景色(4)] )
+    0x03 0x0A 0x0007 0xIIIIIIII 0xGG 0x06
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xGGの値
+        0:ノーマル(0xIIIIIIIIで塗りつぶします)
+        1:透明色で初期化する
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0008.画面に線を引きます(putflushが必要): Canvas.putLine(0x0008)
+>|
+    Canvas.putLine( startX, startY, stopX, stopY, 色)
+    0x03 0x11 0x0008 0xXXXX 0xYYYY 0xGGGG 0xHHHH 0xIIIIIIII 0x06
+    0xXXXXの値 : 開始X座標
+    0xYYYYの値 : 開始Y座標
+    0xGGGGの値 : 終了X座標
+    0xHHHHの値 : 終了Y座標
+    0xIIIIIIIIの値 : 色コード(ARGB)
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0009.画面にボックスを描きます(putflushが必要): Canvas.putRect(0x0009)
+>|
+    Canvas.putRect( startX, startY, stopX, stopY, 色 [,塗りつぶし])
+    0x03 0x12 0x0009 0xXXXX 0xYYYY 0xGGGG 0xHHHH 0xIIIIIIII 0xNN 0x06
+    0xXXXXの値 : 左上X座標
+    0xYYYYの値 : 左上Y座標
+    0xGGGGの値 : 右下X座標
+    0xHHHHの値 : 右下Y座標
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xNNの値
+        0: 枠だけ
+        1: 塗りつぶし
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-000A.画面に円を描きます(putflushが必要): Canvas.putCircle(0x000A)
+>|
+    Canvas.putCircle( CenterX, CenterY, RadiusX, 色 [,塗りつぶし])
+    0x03 0x10 0x000A 0xXXXX 0xYYYY 0xRRRR 0xIIIIIIII 0xNN 0x06
+    0xXXXXの値 : 中心X座標
+    0xYYYYの値 : 中心Y座標
+    0xRRRRの値 : 半径ピクセル数
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xNNの値
+        0: 枠だけ
+        1: 塗りつぶし
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-000B.キー入力を取得します: inkey(0x000B)
+>|
+    inkey( [キー取得(1)] )
+    0x03 0x06 0x000B 0xFn 0x06  →  受信 0x03 0x08 0xXXXX 0xAA 0xMMMM 0x06
+    0xFnの値
+        0x00: キーコードと押されている状態を返す
+        0x01: キーが押されていれば返る
+        0x02: キーが押されていなければ返る
+        0x03: キーが押されていない状態から押されて、さらに離されたら返る
+
+    戻り値  XXXX 押されたキーコード
+            AA   押されている状態
+                0x00: ACTION_DOWN キーが押されている
+                0x01: ACTION_UP   キーが押されていない
+                0x46: エラー発生させて処理を停止させる
+           MMMM メタキーの状態
+|<
+**2-0101.文字を描きます: Canvas.drawText(0x0101)
+>|
+    Canvas.drawText( 文字列(255), X座標(2), Y座標(2), 文字サイズ(2), 文字色(4)[,背景色(4)] )
+    0x03 0xSS(全体サイズ) 0x0101 0xXXXX 0xYYYY 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0x06
+    0x03 0xSS(全体サイズ) 0x0101 0xXXXX 0xYYYY 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0xJg 0xKKKKKKKK 0x06
+    背景処理があるときは、文字データの後に0xJg(==1で背景処理あり)と背景色データが付きます。
+    0xXXXXの値 : 開始X座標
+    0xYYYYの値 : 開始Y座標
+    0xGGGGの値 : フォントサイズ
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xMSの値 : 文字の長さ
+    0xMM～ : 表示する文字コード(UTF-8固定)
+    0xJgの値 : 背景データの有無
+        0: 背景無し
+        1: 背景塗りつぶす
+    0xKKKKKKKKの値 : 背景色コード(ARGB)
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0102.画面を塗りつぶします: Canvas.drawCls(0x0102)
+>|
+    Canvas.drawCls( [背景色(4)] )
+    0x03 0x0A 0x0102 0xIIIIIIII 0xGG 0x06
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xGGの値
+        0:ノーマル(0xIIIIIIIIで塗りつぶします)
+        1:透明色で初期化する
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0103.文字を描きます(putflushが必要): Canvas.putText(0x0103)
+>|
+    Canvas.putText( 文字列(255), X座標(2), Y座標(2), 文字サイズ(2), 文字色(4)[,背景色(4)] )
+    0x03 0xSS(全体サイズ) 0x0103 0xXXXX 0xYYYY 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0x06
+    0x03 0xSS(全体サイズ) 0x0103 0xXXXX 0xYYYY 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0xJg 0xKKKKKKKK 0x06
+    背景処理があるときは、文字データの後に0xJg(==1で背景処理あり)と背景色データが付きます。
+    0xXXXXの値 : 開始X座標
+    0xYYYYの値 : 開始Y座標
+    0xGGGGの値 : フォントサイズ
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xMSの値 : 文字の長さ
+    0xMM～ : 表示する文字コード(UTF-8固定)
+    0xJgの値 : 背景データの有無
+        0: 背景無し
+        1: 背景塗りつぶす
+    0xKKKKKKKKの値 : 背景色コード(ARGB)
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0104.画面のサイズを取得します: Canvas.getviewSize(0x0104)
+>|
+    Canvas.getviewSize()
+    0x03 0x06 0x0104 0x00 0x06
+
+    受信
+    0x03 0x07 0xWWWW 0xHHHH 0x06
+    戻り値    WWWW 画面幅
+            HHHH 画面高さ
+|<
+**2-0105.センタリングして文字を描きます: Canvas.drawTextCenter(0x0105)
+>|
+    Canvas.drawTextCenter( 文字列(255), X座標(2), Y座標(2), 文字サイズ(2), 文字色(4)[,背景色(4)] )
+    0x03 0xSS(全体サイズ) 0x0105 0xXXXX 0xYYYY 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0x06
+    0x03 0xSS(全体サイズ) 0x0105 0xXXXX 0xYYYY 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0xJg 0xKKKKKKKK 0x06
+    背景処理があるときは、文字データの後に0xJg(==1で背景処理あり)と背景色データが付きます。
+    0xXXXXの値 : 中心X座標
+    0xYYYYの値 : 中心Y座標
+    0xGGGGの値 : フォントサイズ
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xMSの値 : 文字の長さ
+    0xMM～ : 表示する文字コード(UTF-8固定)
+    0xJgの値 : 背景データの有無
+        0: 背景無し
+        1: 背景塗りつぶす
+    0xKKKKKKKKの値 : 背景色コード(ARGB)
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0106.指定範囲で改行して文字を描きます: Canvas.drawTextBox(0x0106)
+>|
+    Canvas.drawTextBox( 文字列(255), X座標(2), Y座標(2), 文字サイズ(2), 文字色(4), 描画幅(2)[,背景色(4)] )
+    0x03 0xSS(全体サイズ) 0x0106 0xXXXX 0xYYYY 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0xLLLL 0x06
+    0x03 0xSS(全体サイズ) 0x0106 0xXXXX 0xYYYY 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0xLLLL 0xJg 0xKKKKKKKK 0x06
+    背景処理があるときは、文字データの後に0xJg(==1で背景処理あり)と背景色データが付きます。
+    0xXXXXの値 : 開始X座標
+    0xYYYYの値 : 開始Y座標
+    0xGGGGの値 : フォントサイズ
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xMSの値 : 文字の長さ
+    0xMM～ : 表示する文字コード(UTF-8固定)
+    0xLLLL : 描画範囲(ピクセル)。この範囲を超えると折り返します。
+    0xJgの値 : 背景データの有無
+        0: 背景無し
+        1: 背景塗りつぶす
+    0xKKKKKKKKの値 : 背景色コード(ARGB)
+
+    受信
+    0x03 0x06 0x00 0x00 0xGG(表示行数) 0x06
+    0xGGの値: 表示した行数(1～)
+|<
+**2-0107.文字を回転させて描きます: Canvas.drawTextRotate(0x0107)
+>|
+    Canvas.drawTextRotate( 文字列, 中心X座標, 中心Y座標, 回転角度, 文字サイズ, 文字色 [,背景色] )
+    0x03 0xSS(全体サイズ) 0x0107 0xXXXX 0xYYYY 0xRRRR 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0x06
+    0x03 0xSS(全体サイズ) 0x0107 0xXXXX 0xYYYY 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0xJg 0xKKKKKKKK 0x06
+    背景処理があるときは、文字データの後に0xJg(==1で背景処理あり)と背景色データが付きます。
+    0xXXXXの値 : 中心X座標
+    0xYYYYの値 : 中心Y座標
+    0xRRRRの値 : 回転角度(degree)
+    0xGGGGの値 : フォントサイズ
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xMSの値 : 文字の長さ
+    0xMM～ : 表示する文字コード(UTF-8固定)
+    0xJgの値 : 背景データの有無
+        0: 背景無し
+        1: 背景塗りつぶす
+    0xKKKKKKKKの値 : 背景色コード(ARGB)
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0108.指定範囲で改行して文字を描きます(putflushが必要): Canvas.putTextBox(0x0108)
+>|
+    Canvas.putTextBox( 文字列(255), X座標(2), Y座標(2), 文字サイズ(2), 文字色(4), 描画幅(2)[,背景色(4)] )
+    0x03 0xSS(全体サイズ) 0x0108 0xXXXX 0xYYYY 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0xLLLL 0x06
+    0x03 0xSS(全体サイズ) 0x0108 0xXXXX 0xYYYY 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0xLLLL 0xJg 0xKKKKKKKK 0x06
+    背景処理があるときは、文字データの後に0xJg(==1で背景処理あり)と背景色データが付きます。
+    0xXXXXの値 : 開始X座標
+    0xYYYYの値 : 開始Y座標
+    0xGGGGの値 : フォントサイズ
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xMSの値 : 文字の長さ
+    0xMM～ : 表示する文字コード(UTF-8固定)
+    0xLLLL : 描画範囲(ピクセル)。この範囲を超えると折り返します。
+    0xJgの値 : 背景データの有無
+        0: 背景無し
+        1: 背景塗りつぶす
+    0xKKKKKKKKの値 : 背景色コード(ARGB)
+
+    受信
+    0x03 0x06 0x00 0x00 0xGG(表示行数) 0x06
+    0xGGの値: 表示した行数(1～)
+|<
+**2-0109.文字を回転させて描きます(putflushが必要): Canvas.putTextRotate(0x0109)
+>|
+    Canvas.putTextRotate( 文字列, 中心X座標, 中心Y座標, 回転角度, 文字サイズ, 文字色 [,背景色] )
+    0x03 0xSS(全体サイズ) 0x0109 0xXXXX 0xYYYY 0xRRRR 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0x06
+    0x03 0xSS(全体サイズ) 0x0109 0xXXXX 0xYYYY 0xGGGG 0xIIIIIIII 0xMS(文字長) 0xMM～文字データ 0xJg 0xKKKKKKKK 0x06
+    背景処理があるときは、文字データの後に0xJg(==1で背景処理あり)と背景色データが付きます。
+    0xXXXXの値 : 中心X座標
+    0xYYYYの値 : 中心Y座標
+    0xRRRRの値 : 回転角度(degree)
+    0xGGGGの値 : フォントサイズ
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xMSの値 : 文字の長さ
+    0xMM～ : 表示する文字コード(UTF-8固定)
+    0xJgの値 : 背景データの有無
+        0: 背景無し
+        1: 背景塗りつぶす
+    0xKKKKKKKKの値 : 背景色コード(ARGB)
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-010A.ピクセルの色を取得します: Canvas.getColor(0x010A)
+>|
+    Canvas.getColor( X座標, Y座標 )
+    0x03 0x09 0x010A 0xXXXX 0xYYYY 0x06
+
+    受信
+    0x03 0x08 0xRX 0xIIIIIIII 0x06
+    0xRXの値
+        0x01: OK
+        0x46: エラー(終了)
+    0xIIIIIIIIの値 : ピクセルの色(α値,R値,G値,B値)
+|<
+**2-010B.センタリングして文字を描きます(putflushが必要): Canvas.putTextCenter(0x010B)
+>|
+    Canvas.putTextCenter( 文字列(255), X座標(2), Y座標(2), 文字サイズ(2), 文字色(4)[,背景色(4)] )
+    0x03 0xSS(全体サイズ) 0x010B 0xXXXX 0xYYYY 0xFFFF 0xCCCCCCCC 0xMS(文字長) 0xMM～文字データ 0x06
+    0x03 0xSS(全体サイズ) 0x010B 0xXXXX 0xYYYY 0xFFFF 0xCCCCCCCC 0xMS(文字長) 0xMM～文字データ 0xBg 0xBBBBBBBB 0x06
+    背景処理があるときは、文字データの後に0xJg(==1で背景処理あり)と背景色データが付きます。
+    0xXXXXの値 : 中心X座標
+    0xYYYYの値 : 中心Y座標
+    0xGGGGの値 : フォントサイズ
+    0xIIIIIIIIの値 : 色コード(ARGB)
+    0xMSの値 : 文字の長さ
+    0xMM～ : 表示する文字コード(UTF-8固定)
+    0xJgの値 : 背景データの有無
+        0: 背景無し
+        1: 背景塗りつぶす
+    0xKKKKKKKKの値 : 背景色コード(ARGB)
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0205.画面にダイアログを出します: dialog(0x0205)
+>|
+    dialog(タイトル,本文[,ボタンの種類])
+    0x03 0xSS(全体サイズ) 0x0205 0xNN 0xTS(タイトル文字長) 0xTM～タイトル文字データ 0xHS(本文文字長) 0xHM～本文文字データ 0x06
+    0xNN: ボタンの種類
+        0x00: ボタンなし
+        0x01: OK
+        0x02: Yes/No
+        0x03: Yes/No/Cancel
+
+    受信
+    0x03 0x04 0xRX(OK/Cancel) 0x06
+    0xRXの値
+        0x00: Cancel
+        0x01: OK/Yes
+        0x02: No
+        0x46: エラー(終了)
+|<
+**2-0206.画面にトーストを出します: toast(0x0206)
+>|
+    toast(本文,表示期間)
+    0x03 0xSS(全体サイズ) 0x0206 0xHN 0xHS(本文文字長) 0xHM～本文文字データ 0x06
+    0xHNの値
+        0x00: 表示時間が短い
+        0x01: 表示時間が長い
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0207.文字入力させます: editText(0x0207)
+>|
+    editText(タイトル[,文字初期値フラグ])
+    0x03 0xSS(全体サイズ) 0x0207 0xSN 0xTS(タイトル長) 0xTM～タイトルデータ 0x06
+    0xSNの値
+        0x00: 初期化する(デフォルト)
+        0x01: 初期化しない
+
+    受信
+    0x03 0xSS(全体サイズ) 0xRX(OK/Cancel) 0xHS(入力文字長) 0xHM(入力データ) 0x06
+    0xRXの値
+        0x00: Cancel
+        0x01: OK
+        0x46: エラー(終了)
+|<
+**2-0208.Androidアプリを明示的に呼び出します: System.expCall(0x0208)
+>|
+    System.expCall( クラス名 [,データ,タイプ] )
+    0x03 0xSS(全体サイズ) 0x0208 0xLL(class名長) 0xPM～class名データ 0xTT(Data長) 0xWW～データ 0xTT(Type長) 0xTM～cTypeデータ 0x06
+    このコマンドの後は、Maridaは終了します。ただしエラーが返ったときは、処理を続けます。
+    0xLLの値 : クラス名の長さ
+    0xPM～ : クラス名
+    0xTTの値 : データの長さ
+    0xWW～ : 引数となるデータ
+    0xTTの値 : タイプの長さ
+    0xTM～ : Typeデータ
+
+    受信
+    0x03 0x04 0xRX 0x06
+    0xRXの値
+        0x00: 通常終了
+        0x46: エラー(終了)
+|<
+**2-0209.AndroidアプリをACTION_VIEWで暗黙的に呼び出します: System.impCallActionView(0x0209)
+>|
+    System.impCallActionView( データ文字列, タイプ )
+    0x03 0xSS(全体サイズ) 0x0209 0xLL(URI長) 0xPM～URIデータ 0xTT(Type長) 0xTM～(Type文字列) 0x06
+    このコマンドの後は、Maridaは終了します。ただしエラーが返ったときは、構文処理を続けます。
+    impCallActionViewでは、
+        it.setAction(Intent.ACTION_VIEW);
+        it.setDataAndType( データ文字列, タイプ);
+    のみ対応しています。
+    0xLLの値 : URIの長さ
+    0xPM～ : URIデータ
+    0xTTの値 : タイプの長さ
+    0xTM～ : タイプ文字列
+
+    受信
+    0x03 0x04 0xRX 0x06
+    0xRXの値
+        0x00: 通常終了
+        0x46: エラー(終了)
+|<
+**2-020A.マウントされているSDカードのディレクトリ名を取得します: getSdcard(0x020A)
+>|
+    0x03 0x05 0x020A 0x06
+
+    受信
+    0x03 0xSS(全体サイズ) 0xRX(OK) 0xHS(SDCARDマウント名長さ) 0xHM(SDCARDマウント名) 0x06
+    0xRXの値
+        0x00: OK
+        0x46: エラー(終了)
+    マウント名の仕様 'sdcard' このように、/で挟まない。
+|<
+**2-020C.AndroidアプリをACTION_SENDで暗黙的に呼び出します: impCallActionSend(0x020C)
+>|
+    impCallActionSend( 送信文字列 [, "text/plain"等] )
+    0x03 0xSS(全体サイズ) 0x020C 0xLL(URI長) 0xPM～URIデータ 0xTT(Type長) 0xTM～(Type文字列) 0x06
+    このコマンドの後は、Maridaは終了します。ただしエラーが返ったときは、構文処理を続けます。
+    impCallActionSendでは、
+        it.setAction(Intent.ACTION_SEND);
+        it.putExtra(Intent.EXTRA_TEXT, strText);
+        it.setType("text/plain");←省略時は無し。
+    のみ対応しています。
+    0xLLの値 : URIの長さ
+    0xPM～ : URIデータ
+    0xTTの値 : タイプの長さ
+    0xTM～ : タイプ文字列
+
+    受信
+    0x03 0x04 0xRX 0x06
+    0xRXの値
+        0x00: 通常終了
+        0x46: エラー(終了)
+|<
+**2-020D.Marida2を完全に終了させます: System.exit(0x020D)
+>|
+    System.exit()
+    0x03 0x05 0x020D 0x06
+
+    受信
+    0x03 0x04 0x46 0x06
+    エラー値がもどり、即終了
+|<
+**2-020E.文字を初期化します: editsetText(0x020E)
+>|
+    editsetText(初期化文字)
+    0x03 0xSS(全体サイズ) 0x020E 0xTS(文字長) 0xTM～文字列 0x06
+    0xTSの値 : 文字列の長さ
+    0xTM～ : 文字データ
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-020F.画面の方向を設定します: System.setScreen(0x020F)
+>|
+    System.setScreen(向き)
+    0x03 0x06 0x020F 0xMM 0x06
+    0xMMの値
+        0x00: 横向き(デフォルト)
+        0x01: 縦向き
+　このコマンドを送信した後は、500ms程度ウェイトする必要がある。それは、Androdiの画面が回転したイベント処理に時間が掛かるためである。
+    受信
+    0x03 0x04 0xRX 0x06
+    0xRXの値
+        0x00: 通常終了
+        0x46: エラー(終了)
+|<
+**2-0210.画面のスリープを設定します:System.setSleep(0x0210)
+>|
+    System.setSleep(off(keep)/on)
+    0x03 0x06 0x0210 0xMM 0x06
+    0xMMの値
+        0x00: スリープしない。
+        0x01: スリープする。
+    受信
+    0x03 0x04 0xRX 0x06
+    0xRXの値
+        0x00: 通常終了
+        0x46: エラー(終了)
+|<
+**2-0308.リスト等の表示アイテムを追加します: Item.add(0x0308)
+>|
+    Item.add(文字[,フラグ])
+    0x03 0xSS(全体サイズ) 0x0308 0xGG 0xTS(文字長) 0xTM～文字データ 0x06
+    0xGGの値 これはチェックボタン常時時のデフォルトチェック状態を設定するものです
+        0x00: false
+        0x01: true;
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0309.表示アイテムをクリアします: Item.clear(0x0309)
+>|
+    Item.clear()
+    0x03 0x05 0x0309 0x06
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-030A.選択リストを表示します: Item.list(0x030A)
+>|
+    Item.list(文字)
+    0x03 0xSS(全体サイズ) 0x030A 0xTS(文字長) 0xTM～文字データ 0x06
+
+    受信
+    0x03 0x05 0xGG 0xNm(番号0～255) 0x06
+    0xGGの値
+        0x00: キャンセル
+        0x01: 選択された
+        0x46: エラー(終了)
+    0xNmの値 : 選択された番号が返ります。
+|<
+**2-030B.選択ラジオボタンを表示します: Item.radio(0x030B)
+>|
+    Item.radio(文字,初期選択位置)
+    0x03 0xSS(全体サイズ) 0x030B 0xPJ(初期選択位置1～) 0xTS(文字長) 0xTM～文字データ 0x06
+
+    受信
+    0x03 0x05 0xGG 0xNm(番号0～255) 0x06
+    0xGGの値
+        0x00: キャンセル
+        0x01: 選択された
+        0x46: エラー(終了)
+    0xNmの値 : 選択されたラジオボタンの番号が返ります。
+|<
+**2-030C.選択チェックボタンを表示します: Item.check(0x030C)
+>|
+    Item.check(文字)
+    0x03 0xSS(全体サイズ) 0x030C 0xTS(文字長) 0xTM～文字データ 0x06
+
+    受信
+    0x03 0x14 0xGG 0xXXXXXXXXXXXXXXXX(8バイト) 0x06
+    0xGGの値
+        0x00: キャンセル
+        0x01: 選択された
+        0x46: エラー(終了)
+    0xXX..(8バイト) : 先頭順にビット単位でチェックが入っていれば 1、無ければ 0となっている。従って、選択アイテムは64個までである。
+|<
+**2-0400.ワーク画面の画像をメイン画面に表示します: Canvas.putg(0x0400)
+>|
+    Canvas.putg( 画面表示エリアLeftTopX座標(2), 画面表示エリアLeftTopY座標(2), 画面表示エリアRightBottomX座標(2), 画面表示エリアRightBottomY座標(2), ワークLeftTopX座標(2), ワークLeftTopY座標(2), ワークRightBottomX座標(2), ワークRightBottomY座標(2) )
+    画面表示エリアとワークの指定範囲が異なる場合は、自動的に扁平します。
+    0x03 0x15 0x0400 0xXXXX 0xYYYY 0xGGGG 0xHHHH 0xMMXX 0xMMYY 0xMMGG 0xMMHH 0x06
+    0xXXXXの値 : 表示画面の左上X座標
+    0xYYYYの値 : 表示画面の左上Y座標
+    0xGGGGの値 : 表示画面の右下X座標
+    0xHHHHの値 : 表示画面の右下Y座標
+    0xMMXXの値 : ワーク画面の左上X座標
+    0xMMYYの値 : ワーク画面の左上Y座標
+    0xMMGGの値 : ワーク画面の右下X座標
+    0xMMHHの値 : ワーク画面の右下Y座標
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0401.メイン画面の画像をワーク画面に取得します: Canvas.getg(0x0401)
+>|
+    Canvas.getg( 画面表示エリアLeftTopX座標(2), 画面表示エリアLeftTopY座標(2), 画面表示エリアRightBottomX座標(2), 画面表示エリアRightBottomY座標(2), ワークLeftTopX座標(2), ワークLeftTopY座標(2), ワークRightBottomX座標(2), ワークRightBottomY座標(2) )
+    画面表示エリアとワークの指定範囲が異なる場合は、自動的に扁平します。
+    0x03 0x15 0x0401 0xXXXX 0xYYYY 0xGGGG 0xHHHH 0xMMXX 0xMMYY 0xMMGG 0xMMHH 0x06
+    0xXXXXの値 : 表示画面の左上X座標
+    0xYYYYの値 : 表示画面の左上Y座標
+    0xGGGGの値 : 表示画面の右下X座標
+    0xHHHHの値 : 表示画面の右下Y座標
+    0xMMXXの値 : ワーク画面の左上X座標
+    0xMMYYの値 : ワーク画面の左上Y座標
+    0xMMGGの値 : ワーク画面の右下X座標
+    0xMMHHの値 : ワーク画面の右下Y座標
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0402.画像ファイルをワーク画面に取得します: Canvas.loadBmp(0x0402)
+>|
+    Canvas.loadBmp( 画像ファイル名, ワークLeftTopX座標(2), ワークLeftTopY座標(2), ワークRightBottomX座標(2), ワークRightBottomY座標(2) [,縮小回数] )
+    画像ファイルサイズとワークの指定範囲が異なる場合は、自動的に扁平します。0xNNは縮小回数です。省略時は1になります。
+    0x03 0xSS(全体サイズ) 0x0402 0xMMXX 0xMMYY 0xMMGG 0xMMHH 0xTS(文字長) 0xTM～ファイル名文字データ 0xNN 0x06
+    0xMMXXの値 : ワーク画面の左上X座標
+    0xMMYYの値 : ワーク画面の左上Y座標
+    0xMMGGの値 : ワーク画面の右下X座標
+    0xMMHHの値 : ワーク画面の右下Y座標
+    0xTSの値 : ファイル名の文字数
+    0xTM～ : ファイル名(フルパス)
+    0xNNの値 : 縮小回数(詳しくはhttp://d.hatena.ne.jp/tarosay/20110106/1294290371 参照)
+
+    受信
+    0x03 0x06 0x00 0x00 0xKK(結果) 0x06
+    0xKKの値 画像ファイルの読み込みに成功したかどうかが返ります。
+        0x00: 成功
+        0x01: 失敗
+|<
+**2-0403.メイン画面に書き込みます: Canvas.putflush(0x0403)
+>|
+    Canvas.putflush([x,y,g,h])
+    0x03 0x0E 0x0403 0xLL 0xXXXX 0xYYYY 0xGGGG 0xHHHH 0x06
+    0xXXXXの値 : フラッシュしたい表示の左上X座標
+    0xYYYYの値 : フラッシュしたい表示の左上Y座標
+    0xGGGGの値 : フラッシュしたい表示の右下X座標
+    0xHHHHの値 : フラッシュしたい表示の右下Y座標
+    0xLLの値
+        0x00: 画面全体をフラッシュする
+        0x01: 指定エリアをフラッシュする
+    0xXXXX～0xHHHHはフラッシュする範囲を示します。(x,y)-(g,h)のエリアをフラッシュします。
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0404.ワーク画面の指定エリアをファイルに保存します: Canvas.saveBmp(0x0404)
+>|
+    Canvas.saveBmp( 画像ファイル名, ワークLeftTopX座標(2), ワークLeftTopY座標(2), ワークRightBottomX座標(2), ワークRightBottomY座標(2) )
+    画像ファイルサイズとワークの指定範囲が異なる場合は、自動的に扁平します。
+    0x03 0xSS(全体サイズ) 0x0404 0xMMXX 0xMMYY 0xMMGG 0xMMHH 0xTS(文字長) 0xTM～ファイル名文字データ 0x06
+    0xMMXXの値 : ワーク画面の左上X座標
+    0xMMYYの値 : ワーク画面の左上Y座標
+    0xMMGGの値 : ワーク画面の右下X座標
+    0xMMHHの値 : ワーク画面の右下Y座標
+    0xTSの値 : ファイル名の文字数
+    0xTM～ : ファイル名(フルパス)
+
+    受信
+    0x03 0x06 0x00 0x00 0xKK(結果) 0x06
+    0xKKの値 画像ファイルの書き出しに成功したかどうかが返ります。
+        0x00: 成功
+        0x01: 失敗
+|<
+**2-0405.ワーク画面をクリアします: Canvas.workCls(0x0405)
+>|
+    Canvas.workCls([Color])
+    0x03 0x09 0x0405 0xIIIIIIII 0x06
+    0xIIIIIIIIの値 : 塗りつぶす色コード(ARGB)
+    0x00000000の場合は、透明色で塗りつぶします。
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0406.ワーク画面の画像を回転させてメイン画面に表示します: Canvas.putrotg(0x0406)
+>|
+    Canvas.putrotg( 画面表示中心X座標(2), 画面表示エリア中心Y座標(2), 回転角度(2), ワークLeftTopX座標(2), ワークLeftTopY座標(2), ワークRightBottomX座標(2), ワークRightBottomY座標(2) )
+    0x03 0x13 0x0406 0xXXXX 0xYYYY 0xKKKK 0xMMXX 0xMMYY 0xMMGG 0xMMHH 0x06
+    0xXXXXの値 : 表示画面の中心X座標
+    0xYYYYの値 : 表示画面の中心Y座標
+    0xKKKKの値 : 画像の回転角度(degree)
+    0xMMXXの値 : ワーク画面の左上X座標
+    0xMMYYの値 : ワーク画面の左上Y座標
+    0xMMGGの値 : ワーク画面の右下X座標
+    0xMMHHの値 : ワーク画面の右下Y座標
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0407.ワーク画面のサイズを設定します: Canvas.setWorkBmp(0x0407)
+>|
+    Canvas.setWorkBmp(width,height)
+    0x03 0x09 0x0407 0xWWWW 0xHHHH 0x06
+    0xWWWWの値 : ワーク画面の幅(ピクセル)
+    0xHHHHの値 : ワーク画面の高さ(ピクセル)
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0408.メイン画面のサイズを設定します: Canvas.setMainBmp(0x0408)
+>|
+    Canvas.setMainBmp(width,height)
+    0x03 0x09 0x0408 0xWWWW 0xHHHH 0x06
+    0xWWWWの値 : メイン画面の幅(ピクセル)
+    0xHHHHの値 : メイン画面の高さ(ピクセル)
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0409.ワーク画面をSurfaceViewにフラッシュします: Canvas.workflush(0x0409)
+>|
+    Canvas.workflush(x,y,g,h)
+    0x03 0x0E 0x0409 0xLL 0xMMXX 0xMMYY 0xMMGG 0xMMHH 0x06
+    0xLLの値
+        特に設定はない
+    0xXXXX～0xHHHHはフラッシュする範囲を示します。ワークエリアの(x,y)-(g,h)のエリアをSurfaceView全体にフラッシュします。
+    0xMMXXの値 : ワーク画面の左上X座標
+    0xMMYYの値 : ワーク画面の左上Y座標
+    0xMMGGの値 : ワーク画面の右下X座標
+    0xMMHHの値 : ワーク画面の右下Y座標
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-040A.画像ファイルのサイズを取得します: Canvas.getBmpSize(0x040A)
+>|
+    Canvas.getBmpSize( 画像ファイル名 )
+    0x03 0xSS(全体サイズ) 0x040A 0xTS(文字長) 0xTM～ファイル名文字データ 0x06
+    0xTSの値 : ファイル名の文字数
+    0xTM～ : ファイル名(フルパス)
+
+    受信
+    0x03 0x0E 0x00 0x00 0xKK(結果) 0xWWWWWWWW 0xHHHHHHHH 0x06
+    0xKKの値
+        0x00: 成功
+        0x01: 失敗
+    0xWWWWWWWWの値
+        画像の幅(ピクセル)
+    0xHHHHHHHHの値
+        画像の高さ(ピクセル)
+|<
+**2-040B.ワーク画面内で画像をコピーします: Canvas.putWork(0x040B)
+>|
+    Canvas.putWork(mx,my,mg,mh,xx,yy,gg,hh)
+    0x03 0x15 0x040B 0xXXXX 0xYYYY 0xGGGG 0xHHHH 0xMMXX 0xMMYY 0xMMGG 0xMMHH 0x06
+    0xXXXXの値 : ワーク画面のコピー先の左上X座標
+    0xYYYYの値 : ワーク画面のコピー先の左上Y座標
+    0xGGGGの値 : ワーク画面のコピー先の右下X座標
+    0xHHHHの値 : ワーク画面のコピー先の右下Y座標
+    0xMMXXの値 : ワーク画面のコピー元の左上X座標
+    0xMMYYの値 : ワーク画面のコピー元の左上Y座標
+    0xMMGGの値 : ワーク画面のコピー元の右下X座標
+    0xMMHHの値 : ワーク画面のコピー元の右下Y座標
+
+    受信
+    0x03 0x06 0x00 0x00 0xKK(結果) 0x06
+    0xKKの値
+        0x00: 成功
+        0x01: 失敗
+|<
+**2-0500.サウンドデータをクリアします: Sound.clearAll(0x0500)
+>|
+    Sound.clearAll()
+    0x03 0x05 0x0500 0x06
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0501.サウンドファイルをセットします: Sound.setSoundFile(0x0501)
+>|
+    Sound.setSoundFile(サウンドファイル名, サウンド番号(0～7), BGM・効果音フラグ )
+    0x03 0xLC(全体サイズ) 0x0501 0xNN(サウンド番号) 0xGM(BGM効果音フラグ) 0xLL(ファイル名長) 0xLN(ファイル名～) 0x06
+    0xNNの値 : サウンドデータに割り当てるサウンド番号
+    0xGMの値 : BGM/効果音フラグ
+        0: BGMタイプで多重再生不可
+        1: 効果音タイプで多重再生有効(4重まで)
+    0xLLの値 : ファイル名の長さ
+    0xLN～ : ファイル名(フルパス)
+
+    受信
+    0x03 0x06 0x00 0x00 0xKK(結果) 0x06
+    0xKKの値
+        0x00: 設定成功
+        0x01: 設定失敗
+|<
+**2-0502.サウンド再生します: Sound.start(0x0502)
+>|
+    Sound.start(サウンド番号(0～7) [, Loop有無] )
+    0x03 0x07 0x0502 0xNN(サウンド番号) 0xLP 0x06
+    0xNNの値 : 割り当てたサウンド番号
+    0xLPの値 : ループの有無
+        0: ループ無し
+        1: ループ有り
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0503.サウンド最初から再生します: Sound.restart(0x0503)
+>|
+    Sound.restart(サウンド番号(0～7))
+    0x03 0x06 0x0503 0xNN(サウンド番号) 0x06
+    0xNNの値 : 割り当てたサウンド番号
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0504.サウンドの再生を止めます: Sound.stop(0x0504)
+>|
+    Sound.stop(サウンド番号(0～7) )
+    0x03 0x06 0x0504 0xNN(サウンド番号) 0x06
+    0xNNの値 : 割り当てたサウンド番号
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0505.サウンドの再生を一時停止します: Sound.pause(0x0505)
+>|
+    Sound.pause(サウンド番号(0～7) )
+    0x03 0x06 0x0505 0xNN(サウンド番号) 0x06
+    0xNNの値 : 割り当てたサウンド番号
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0506.サウンドが鳴っているかどうか調べます: Sound.isPlay(0x0506)
+>|
+    Sound.isPlay(サウンド番号(0～7))
+    0x03 0x06 0x0506 0xNN(サウンド番号) 0x06
+    0xNNの値 : 割り当てたサウンド番号
+
+    受信
+    0x03 0x06 0x0000 0xIS 0x06
+        0xISの値 : サウンドの演奏有無
+        0: 鳴っていない
+        1: 鳴っている
+|<
+**2-0507.ビープ音を鳴らします: Sound.beep(0x0507)
+>|
+    Sound.beep([周波数[,msec]])
+    0x03 0x09 0x0507 0xHZHZ 0xMMMM 0x06
+    0xHZHZの値 : 周波数 1～10000Hz
+    0xMMMMの値 : なっている時間(msec)
+|<
+**2-0600.加速度センサ情報を取得します: Sensor.getAccel(0x0600)
+>|
+    Sensor.getAccel()
+    0x03 0x05 0x0600 0x06
+
+    受信
+    0x03 0x10 0xKK 0xXXXXXXXX 0xYYYYYYYY 0xZZZZZZZZ 0x06
+    0xKKの値 : 常にゼロ
+    0xXXXXXXXXの値 : X方向の加速度(4バイト) float 値を持っている。
+    0xYYYYYYYYの値 : Y方向の加速度(4バイト) float 値を持っている。
+    0xZZZZZZZZの値 : Z方向の加速度(4バイト) float 値を持っている。
+|<
+**2-0601.傾斜センサ情報を取得します: Sensor.getOrient(0x0601)
+>|
+    Sensor.getOrient()
+    0x03 0x05 0x0601 0x06
+
+    受信
+    0x03 0x10 0xKK 0xYYYYYYYY 0xPPPPPPPP 0xRRRRRRRR 0x06
+    0xKKの値 : 常にゼロ
+    0xYYYYYYYYの値 : 回転の角度(4バイト) float 値を持っている。
+    0xPPPPPPPPの値 : 上下のピッチ成分(4バイト) float 値を持っている。
+    0xRRRRRRRRの値 : ロール成分(4バイト) float 値を持っている。
+|<
+**2-0602.磁気センサ情報を取得します: Sensor.getMagnet(0x0602)
+>|
+    Sensor.getMagnet()
+    0x03 0x05 0x0602 0x06
+
+    受信
+    0x03 0x10 0xKK 0xXXXXXXXX 0xYYYYYYYY 0xZZZZZZZZ 0x06
+    0xKKの値 : 常にゼロ
+    0xXXXXXXXXの値 : X方向の磁気成分(4バイト) float 値を持っている。
+    0xYYYYYYYYの値 : Y方向の磁気成分(4バイト) float 値を持っている。
+    0xZZZZZZZZの値 : Z方向の磁気成分(4バイト) float 値を持っている。
+|<
+**2-0603.加速度センサの動作を切り替えます: Sensor.setdevAccel(0x0603)
+>|
+    Sensor.setdevAccel()
+    0x03 0x06 0x0603 0xSS 0x06
+    0xSSの値 : センサ動作の有無を設定します
+        0: 加速度センサ動作終了
+        1: 加速度センサ動作開始
+
+    受信
+    0x03 0x06 0x00 0x00 0xRR 0x06
+    0xRRの値 : 設定の成功有無
+        0: 設定成功
+        1: 設定失敗
+|<
+**2-0604.傾斜センサの動作を切り替えます: Sensor.setdevOrient(0x0604)
+>|
+    Sensor.setdevOrient()
+    0x03 0x06 0x0604 0xSS 0x06
+    0xSS : センサ動作の有無を設定します
+        0: 傾斜センサ動作終了
+        1: 傾斜センサ動作開始
+
+    受信
+    0x03 0x06 0x00 0x00 0xRR 0x06
+    0xRRの値 : 設定の成功有無
+        0: 設定成功
+        1: 設定失敗
+|<
+**2-0605.磁気センサの動作を切り替えます: Sensor.setdevMagnet(0x0605)
+>|
+    Sensor.setdevMagnet()
+    0x03 0x06 0x0605 0xSS 0x06
+    0xSS : センサ動作の有無を設定します
+        0: 磁気センサ動作終了
+        1: 磁気センサ動作開始
+
+    受信
+    0x03 0x06 0x00 0x00 0xRR 0x06
+    0xRRの値 : 設定の成功有無
+        0: 設定成功
+        1: 設定失敗
+|<
+**2-0700.httpのGETコマンド処理を行います: Http.get(0x0700)
+>|
+    Http.get( URL, getFilename )
+    0x03 0xLL(全体サイズ) 0x0700 0xUR(URL長) 0xUN(URL～) 0xXL(ファイル名長) 0xXN(ファイル名～) 0x06
+        引数 URL:はURL(Uniform Resource Locator)
+            getFilenameは、取得し保存するファイル名
+|<
+**2-0701.httpのコマンドに設定するヘッダを追加します: Http.addHeader(0x0701)
+>|
+    Http.addHeader( HeaderName, Data )
+    0x03 0xLL(全体サイズ) 0x0701 0xHR(ヘッダ名長) 0xHN(ヘッダ名～) 0xXL(データ長) 0xXN(データ～) 0x06
+        引数 HeaderName:はヘッダ名
+             Dataは、ヘッダの内容
+|<
+**2-0702.httpの取得状態を返します: Http.status(0x0702)
+>|
+    Http.status()
+    0x03 0x06 0x0702 0x00 0x06
+
+    受信
+    0x03 0x06 0x00 0xST 0xAK 0x06
+        戻り値 0xST
+        0: http取得中
+        1: http取得正常終了
+        2: URLのプロトコルが開けない
+        3: URLが見つからない。または接続できない
+        4: データ取得時にエラー発生
+        5: 保存ファイルが開けない
+        6: 接続タイムアウト
+        7: httpスレッド起動時にエラー発生
+        8: postできませんでした
+        9: post処理中にエラーが発生
+|<
+**2-0703.httpのPOSTコマンド処理を行います: Http.post(0x0703)
+>|
+    Http.post( URL )
+    0x03 0xLC(全体サイズ) 0x0703 0xUR(URL長) 0xUN(URL～) 0x06
+    0xURの値 : POSTするURL名の長さ
+    0xUN～ : POSTするURL名
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0704.送信するファイル名をセットします: Http.setPostFile(0x0704)
+>|
+    Http.setPostFile( Filename )
+    0x03 0xLC(全体サイズ) 0x0704 0xFL(ファイル名長) 0xFN(ファイル名～) 0x06
+    0xFLの値 : POSTするファイル名の長さ
+    0xFN～ : POSTするファイル名(フルパス指定)
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0705.パラメータをセットします: Http.addParam(0x0705)
+>|
+    Http.addParam( 文字列 )
+    パラメータとは、?以降に付けられる&で区切られた文字列です。
+    0x03 0xLC(全体サイズ) 0x0705 0xPL(パラメータ文字長) 0xPN(パラメータ～) 0x06
+    0xPLの値 : POSTするときのパラメータの長さ
+    0xPN～ : POSTするときのパラメータ。例えば abc=3 など。URLの後に?で区切られて付くパラメータです。
+            パラメータは追加セットされるとabc=3&efg=2のように&で区切られて並べられます。
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+>|
+**2-0706.セットしたパラメータを消去します: Http.clrParam(0x0706)
+    Http.clrParam()
+    0x03 0x05 0x0706 0x06
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0707.httpのコマンドに設定するヘッダを消去します: Http.clrHeader(0x0707)
+>|
+    Http.clrHeader()
+    0x03 0x05 0x0707 0x06
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0708.送信するファイル名のコンテントタイプをセットします: Http.setContentType(0x0708)
+>|
+    Http.setContentType( ContentType )
+    0x03 0xLC(全体サイズ) 0x0708 0xXL(コンテントタイプ名長) 0xXN(コンテントタイプ名～) 0x06
+    0xXLの値 : POSTするファイルのコンテントタイプ名の長さ
+    0xXN～ : POSTするファイルのコンテントタイプ名。image/jpeg, text/plain, text/xml, application/zipなど。
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0800.zipの実行状況を返します: Zip.status(0x0800)
+>|
+    Zip.status()
+    0x03 0x06 0x0800 0x00 0x06
+
+    受信
+    0x03 0x06 0x00 0xST 0xAK 0x06
+    0xSTの値 :
+        0: 圧縮中
+        1: 圧縮の正常終了
+        2: 圧縮失敗
+|<
+**2-0801.zip圧縮を行います: Zip.exec(0x0801)
+>|
+    Zip.exec( zipFilename )
+    0x03 0xLC(全体サイズ) 0x0801 0xGL(圧縮ファイル名長) 0xGN(圧縮ファイル名～) 0x06
+    0xGLの値 : 圧縮ファイル名の長さ
+    0xGN～ : 圧縮ファイル名(フルパス指定)
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0802.zip圧縮するファイルを追加セットします: Zip.addFile(0x0802)
+>|
+    Zip.addFile( Filename )
+    0x03 0xLC(全体サイズ) 0x0802 0xGL(ファイル名長) 0xGN(ファイル名～) 0x06
+    0xGLの値 : 圧縮するファイル名の長さ
+    0xGN～ : 圧縮するファイル名(フルパス指定)
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0803.セットしたzip圧縮ファイル名をクリアします: Zip.clrFile(0x0803)
+>|
+    Zip.clrFile()
+    0x03 0x05 0x0803 0x06
+
+　　受信 ACKとして0x000000が返ります
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0900.tcpソケット接続を行います: Sock.connectOpen(0x0900)
+>|
+    Sock.connectOpen( Number, Address, Port [,TimeOut] )
+    0x03 0xLC(全体サイズ) 0x0900 0xNN(番号) 0xPPPP(ポート番号) 0xTTTT(タイムアウト) 0xAL(アドレス名長) 0xAN(アドレス名～) 0x06
+        Numberは、ソケット番号: 2つまでソケットを使うことができます。
+        Addressは、ホストアドレス
+        Portは、ポート番号
+        TimeOutは、タイムアウト(s)
+
+    受信
+    0x03 0x06 0xRR 0x00 0xAK 0x06
+    戻り値  0xRR
+            0:接続できませんでした
+            1:接続できました
+|<
+**2-0901.tcpソケット接続を待ちます(サーバ行います: Sock.listenOpen(0x0901)
+>|
+    Sock.listenOpen( Number, Port [,TimeOut] )
+    0x03 0x0A 0x0901 0xNN(番号) 0xPPPP(ポート番号) 0xTTTT(タイムアウト) 0x06
+        Numberは、ソケット番号: 2つまでソケットを使うことができます。
+       Portは、ポート番号
+       TimeOutは、タイムアウト(s)
+
+    受信
+    0x03 0x06 0xRR 0x00 0xAK 0x06
+    戻り値  0xRR
+            0:接続待ちがタイムアウトしました
+            1:接続できました
+|<
+**2-0902.tcpソケット接続をクローズします: Sock.close(0x0902)
+>|
+    Sock.close( Number )
+    0x03 0x06 0x0902 0xNN(番号) 0x06
+        Numberは、ソケット番号: 2つまでソケットを使うことができます。
+    
+    受信
+    0x03 0x06 0xRR 0x00 0xAK 0x06
+    戻り値  0xRR
+            0: closeできませんでした
+            1: closeできました
+|<
+**2-0903.tcpソケットでデータを送信します: Sock.send(0x0903)
+>|
+    Sock.send( Number, Data, Length )
+    0x03 0xLC(全体サイズ) 0x0903 0xNN(番号) 0xAL(データ長) 0xAN(データ～) 0x06
+        Numberは、ソケット番号: 2つまでソケットを使うことができます。
+        Dataは、送信データです。
+
+    受信
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0904.tcpソケットでデータを受信します: Sock.recv(0x0904)
+>|
+    Sock.recv( Number [,TimeOut] )
+    0x03 0x08 0x0904 0xNN(番号) 0xTTTT(タイムアウト) 0x06
+        Numberは、ソケット番号: 2つまでソケットを使うことができます。
+        TimeOutは、タイムアウト(s)
+    
+    受信
+    0x03 0xSS(全体サイズ) 0xRX(OK) 0xHS(データ長さ) 0xHM(データ～) 0x06
+    0xRXの値
+        0x00: OK
+        0x01: タイムアウト
+        0x46: エラー(Marida2終了)
+|<
+**2-0905.tcpソケット接続している機器のIPアドレスを返します: Sock.getAddress(0x0905)
+>|
+    Sock.getAddress( Number [,Local] )
+    0x03 0x07 0x0905 0xNN(番号) 0xLC(Inet/Local) 0x06
+        Numberは、ソケット番号: 2つまでソケットを使うことができます。
+        Localは、省略または、0:接続先のIPアドレスを返します。が1の時には、自機のIPアドレスを返します
+
+    受信
+    0x03 0xSS(全体サイズ) 0xRX(OK) 0xHS(アドレス長さ) 0xHM (アドレス) 0x06
+    0xRXの値
+        0x00: OK
+        0x01: エラー
+       0x46: エラー(Marida2終了)
+|<
+**スプライトについて
+Marida2には仮想スプライト処理を実装しています。64個の任意サイズの画像を重ね合わせて表示することが可能です。ただし、Android側では、表示画像の定義、画像の表示、タッチ状態の取得のみが行えます。スプライト画像の表示位置や移動量計算などは接続機器側で処理する必要があります。
+
+**2-0A00.スプライト番号と画像を定義します: Sprite.define(0x0A00)
+>|
+    Sprite.define( スプライト番号, ワークLeftTopX座標, ワークLeftTopY座標, ワークRightBottomX座標, ワークRightBottomY座標 )
+    0x03 0x0E 0x0A00 0xNN(スプライト番号) 0xXXX0 0xYYY0 0xXXX1 0xYYY1 0x06
+        NNは、スプライト番号です。(0～63)
+        XXX0は、定義するワーク画面の左上X座標です。
+        YYY0は、定義するワーク画面の左上Y座標です。
+        XXX1は、定義するワーク画面の右下X座標です。
+        YYY1は、定義するワーク画面の右下Y座標です。
+
+    受信
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0A01.move指定されたスプライトを表示します: Sprite.put(0x0A01)
+>|
+    Sprite.put()
+    0x03 0x01 0x0A01 0xSSSS 0xNN 0xMMMMMMMMMMMMMMMM(8バイトのmoveデータ)×move指定個数 0x06
+        MMMMMMMMMMMMMMMMは、moveで設定されたデータです。moveデータは一度に64個まで送ることができます。
+        1+1+2+2+1+64*8+1= 520バイト
+        | 1バイト   |     1バイト   |   1バイト   |   1バイト   |   1バイト   |     1バイト      |      1バイト     |          1バイト           |
+        |76543210   |765       |4321076543210     |765     |4321076543210     |76543210          |76543210          |76543210                    |
+        |番号(0～99)|表示モード|X座標(-4096~+4095)|倍率符号|Y座標(-4096~+4095)|横倍率(0.125~31.5)|縦倍率(0.125~31.5)|回転角度(0~255が0~358.59375)|
+    表示モードは、スプライト画像の表示モードです。0:非表示, 1:表示(表示後、非表示となります), 2:保持(表示後、非表示になりません)
+    横倍率は、表示時の横倍率(0.125～31.5)は、指数部 3bit、仮数部 5bitの浮動小数扱いです。
+    縦倍率は、表示時の縦倍率(0.125～31.5)は、指数部 3bit、仮数部 5bitの浮動小数扱いです。
+    縦と横の倍率の符号は、倍率符号部に、縦倍率符号(1bit)縦倍率符号(1bit)をセットします。
+    回転角は、画像の回転角度です。(0～359)ただし、360を256分割するので、精度は1.40625度です。
+
+    受信
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0A02.スプライトの初期化を行います: Sprite.init(0x0A02)
+>|
+    Sprite.init()
+    0x03 0x06 0x0A02 0x06
+
+    受信
+    0x03 0x06 0x00 0x00 0x00 0x06
+|<
+**2-0A03.スプライトのタッチ状態を調べます: Sprite.touch(0x0A03)
+>|
+    Sprite.touch([Number,...])
+    調べることができるのは、表示モードが2(保持)のスプライトのみです。
+    0x03 0xKK 0x0A03 0xNN 0xSS..(調べるスプライト番号分) 0x06
+        Numberは、スプライト番号です。(0～63)
+        引数はいくつ書いてもOKです。省略時は64個全て調べます。
+    0xNNの値
+        調べるスプライトの個数です
+        0のときは、63～0まで全て調べる
+    0xSSの値
+        0xNNが0のときは0xSSは省略
+        調べるスプライト番号です。
+
+    受信
+    0x03 0xKK 0xSS 0xHH ... 0x06
+        0xSSの値
+            0: タッチしていない
+          1～: タッチしているスプライトの個数
+        0xHHの値
+            タッチしているスプライト番号
+|<

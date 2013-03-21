@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources> 
+ 
+    <string name="app_name">Ya mruby</string>
+    <string name="NotFoundSD">The SD memory card is not found.</string>
+    <string name="title">List display</string>
+    <string name="empty">The file do not exist.</string>
+    <string name="startFilename">yamruby.rb</string>
+    
+    <string name="errInit"> Initialization error</string>
+    <string name="errBinfile">Binary command could not be expanded.</string>
+    <string name="errStopAppli">Yamruby is ended.</string>
+    <string name="errNotMountSD">SD memory card is not mounted. After putting SD memory card, please re-start.</string>
+    <string name="errMkDirSD">It failed in making the folder for the SD memory card.</string>
+    <string name="errIntentCall">Application program call error</string>
+    <string name="errFTDriver">The USB serial connection cannot be detected.</string>
+    <string name="errMarida">Please install Marida2.</string>
+    <string name="errShortcut1">The short cut file was not found.</string>
+    <string name="errShortcut2">Try to make the short cut.</string>
+        
+    <string name="selFileShortcut">The short cut of the selected rb(rbc) file is made.</string>
+    <string name="selFileIcon">Icon</string>
+    <string name="selFileGetGazo">Acquisition from image</string>
+    <string name="selFileSelectIcon">Please select an icon</string>
+    <string name="selFileErrRead">It failed in the image reading.</string>
+    <string name="selFileRetry">Please retry.</string>
+    <string name="selFileNotRead"> was not able to be read.</string>
+    <string name="selFileErrTitle">Image reading error</string>
+    <string name="selFileSelectScript">Select Script</string>
+    <string name="selFileExt">rb</string>
+    <string name="selFileExt2">rbc</string> 
+    <string name="selFileCreateScut">The short cut was made.</string>
+     
+</resources>

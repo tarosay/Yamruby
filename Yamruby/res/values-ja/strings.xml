@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Ya mruby</string>
+    <string name="NotFoundSD">SDメモリカードが見つかりません。</string>
+    <string name="title">リスト表示</string>
+    <string name="empty">ファイルが存在しません</string>
+    <string name="startFilename">yamruby.rb</string>
+    
+    <string name="errInit"> 初期化エラー</string>
+    <string name="errBinfile">Binaryコマンドが展開できませんでした。</string>
+    <string name="errStopAppli">Yamrubyを終了します。</string>
+    <string name="errNotMountSD">SDメモリカードがマウントされていません。SDメモリカード入れた後、起動しなおして下さい。</string>
+    <string name="errMkDirSD">SDメモリカードへのフォルダの作成に失敗しました。</string>
+    <string name="errIntentCall">アプリ呼び出しエラー</string>
+    <string name="errFTDriver">USBシリアル接続が検出できません</string>
+    <string name="errMarida">Marida2をインストールしてください</string>
+    <string name="errShortcut1">ショートカットファイルが見つかりませんでした</string>
+    <string name="errShortcut2">ショートカットを作り直してください</string>
+    
+    <string name="selFileShortcut">選択したrb(rbc)ファイルのショートカットを作成します。</string>
+    <string name="selFileIcon">アイコン</string>
+    <string name="selFileGetGazo">画像から取得</string>
+    <string name="selFileSelectIcon">アイコンを選んでください</string>
+    <string name="selFileErrRead">画像読み込みに失敗しました。</string>
+    <string name="selFileRetry">再度お願いします。</string>
+    <string name="selFileNotRead">が読み込めませんでした。</string>
+    <string name="selFileErrTitle">画像読み込みエラー</string>
+    <string name="selFileSelectScript">スクリプトを選んでください。</string>
+    <string name="selFileExt">rb</string>
+    <string name="selFileExt2">rbc</string>
+    <string name="selFileCreateScut">ショートカットを作成しました</string>
+    
+</resources>
